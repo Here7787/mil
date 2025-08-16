@@ -3647,24 +3647,54 @@ if (message.content === '!تصفير_الكل') {
                         return message.reply(`ليس لديك ${amount} جندي لإعطائهم.`);
                     }
 
-                    user.soldiers -= amount;
-                    targetUserData.soldiers += amount;
-                    await user.save();
-                    await targetUserData.save();
-
-                    message.reply(`تم إعطاء ${amount} جندي إلى ${targetUser.username} بنجاح!`);
+                    // استخدام معاملة ذرية لضمان عدم فقدان الجنود
+                    try {
+                        user.soldiers -= amount;
+                        targetUserData.soldiers += amount;
+                        
+                        // حفظ البيانات في معاملة واحدة
+                        await Promise.all([user.save(), targetUserData.save()]);
+                        
+                        message.reply(`تم إعطاء ${amount} جندي إلى ${targetUser.username} بنجاح!`);
+                    } catch (error) {
+                        // إعادة تعيين القيم في حالة الفشل
+                        console.error('Error in soldier transfer:', error);
+                        
+                        // إعادة تحميل البيانات الأصلية من قاعدة البيانات
+                        const freshUserData = await User.findOne({ id: message.author.id });
+                        const freshTargetData = await User.findOne({ id: targetUser.id });
+                        if (freshUserData) Object.assign(user, freshUserData.toObject());
+                        if (freshTargetData) Object.assign(targetUserData, freshTargetData.toObject());
+                        
+                        throw error; // إعادة رمي الخطأ للمعالج العام
+                    }
 
                 } else if (resourceType === 'عملات') {
                     if (user.coins < amount) {
                         return message.reply(`ليس لديك ${amount} عملة لإعطائها.`);
                     }
 
-                    user.coins -= amount;
-                    targetUserData.coins += amount;
-                    await user.save();
-                    await targetUserData.save();
-
-                    message.reply(`تم إعطاء ${amount} عملة إلى ${targetUser.username} بنجاح!`);
+                    // استخدام معاملة ذرية لضمان عدم فقدان العملات
+                    try {
+                        user.coins -= amount;
+                        targetUserData.coins += amount;
+                        
+                        // حفظ البيانات في معاملة واحدة
+                        await Promise.all([user.save(), targetUserData.save()]);
+                        
+                        message.reply(`تم إعطاء ${amount} عملة إلى ${targetUser.username} بنجاح!`);
+                                         } catch (error) {
+                         // إعادة تعيين القيم في حالة الفشل
+                         console.error('Error in coin transfer:', error);
+                         
+                         // إعادة تحميل البيانات الأصلية من قاعدة البيانات
+                         const freshUserData = await User.findOne({ id: message.author.id });
+                         const freshTargetData = await User.findOne({ id: targetUser.id });
+                         if (freshUserData) Object.assign(user, freshUserData.toObject());
+                         if (freshTargetData) Object.assign(targetUserData, freshTargetData.toObject());
+                         
+                         throw error; // إعادة رمي الخطأ للمعالج العام
+                     }
 
                 } else {
                     // التحقق من العناصر الأخرى
@@ -3674,11 +3704,20 @@ if (message.content === '!تصفير_الكل') {
                         return message.reply(`ليس لديك ${amount} من ${resourceType} لإعطائها.`);
                     }
 
-                    // إزالة العناصر من المعطي وإضافتها للمتلقي
-                    await removeUserItem(message.author.id, resourceType, amount);
-                    await addUserItem(targetUser.id, resourceType, amount);
+                    // استخدام معاملة ذرية لضمان عدم فقدان العناصر
+                    try {
+                        // إزالة العناصر من المعطي وإضافتها للمتلقي في معاملة واحدة
+                        await Promise.all([
+                            removeUserItem(message.author.id, resourceType, amount),
+                            addUserItem(targetUser.id, resourceType, amount)
+                        ]);
 
-                    message.reply(`تم إعطاء ${amount} من ${resourceType} إلى ${targetUser.username} بنجاح!`);
+                        message.reply(`تم إعطاء ${amount} من ${resourceType} إلى ${targetUser.username} بنجاح!`);
+                    } catch (error) {
+                        // إعادة تعيين القيم في حالة الفشل
+                        console.error('Error in item transfer:', error);
+                        throw error; // إعادة رمي الخطأ للمعالج العام
+                    }
                 }
 
                 // إرسال رسالة للمتلقي
@@ -7598,27 +7637,50 @@ if (message.content.startsWith('!شراء')) {
                                         return message.reply(`ليس لديك ما يكفي من العملات لشراء ${quantity} من ${selectedItem.name}. تحتاج إلى ${totalCost} عملة.`);
                                     }
 
-                                    if (selectedItem.name === 'جندي') {
-                                        user.soldiers += quantity;
-                                    } else {
-                                        // التحقق من الحدود للمناجم ومستخرجات النفط
-                                        if (ITEM_LIMITS[selectedItem.name]) {
-                                            const currentCount = await getUserItemCount(message.author.id, selectedItem.name);
-                                            if (currentCount + quantity > ITEM_LIMITS[selectedItem.name]) {
-                                                const maxCanBuy = ITEM_LIMITS[selectedItem.name] - currentCount;
-                                                if (maxCanBuy <= 0) {
-                                                    return i.reply(`لا يمكنك شراء المزيد من ${selectedItem.name}. الحد الأقصى هو ${ITEM_LIMITS[selectedItem.name]}.`);
+                                    // استخدام معاملة ذرية لضمان عدم فقدان العملات أو إضافة عناصر بدون دفع
+                                    try {
+                                        // خصم العملات أولاً
+                                        user.coins -= totalCost;
+                                        
+                                        if (selectedItem.name === 'جندي') {
+                                            user.soldiers += quantity;
+                                            // حفظ البيانات في معاملة واحدة
+                                            await user.save();
+                                        } else {
+                                            // التحقق من الحدود للمناجم ومستخرجات النفط
+                                            if (ITEM_LIMITS[selectedItem.name]) {
+                                                const currentCount = await getUserItemCount(message.author.id, selectedItem.name);
+                                                if (currentCount + quantity > ITEM_LIMITS[selectedItem.name]) {
+                                                    const maxCanBuy = ITEM_LIMITS[selectedItem.name] - currentCount;
+                                                    if (maxCanBuy <= 0) {
+                                                        // إعادة العملات قبل الخروج
+                                                        user.coins += totalCost;
+                                                        return message.reply(`لا يمكنك شراء المزيد من ${selectedItem.name}. الحد الأقصى هو ${ITEM_LIMITS[selectedItem.name]}.`);
+                                                    }
+                                                    // إعادة العملات قبل الخروج
+                                                    user.coins += totalCost;
+                                                    return message.reply(`يمكنك شراء ${maxCanBuy} فقط من ${selectedItem.name} (الحد الأقصى ${ITEM_LIMITS[selectedItem.name]}).`);
                                                 }
-                                                return i.reply(`يمكنك شراء ${maxCanBuy} فقط من ${selectedItem.name} (الحد الأقصى ${ITEM_LIMITS[selectedItem.name]}).`);
                                             }
+                                            
+                                            // حفظ المستخدم وإضافة العناصر في معاملة واحدة
+                                            await Promise.all([
+                                                user.save(),
+                                                addUserItem(message.author.id, selectedItem.name, quantity)
+                                            ]);
                                         }
                                         
-                                        await addUserItem(message.author.id, selectedItem.name, quantity);
-                                    }
-
-                                    user.coins -= totalCost;
-                                    await user.save();
-                                    message.reply(`تم شراء ${quantity} من ${selectedItem.name} بنجاح!`);
+                                        message.reply(`تم شراء ${quantity} من ${selectedItem.name} بنجاح!`);
+                                                                         } catch (error) {
+                                         // إعادة تعيين القيم في حالة الفشل
+                                         console.error('Error in quantity purchase:', error);
+                                         
+                                         // إعادة تحميل البيانات الأصلية من قاعدة البيانات
+                                         const freshUserData = await User.findOne({ id: message.author.id });
+                                         if (freshUserData) Object.assign(user, freshUserData.toObject());
+                                         
+                                         throw error; // إعادة رمي الخطأ للمعالج العام
+                                     }
                                 } catch (error) {
                                     console.error('Error processing quantity:', error);
                                     message.reply('حدث خطأ أثناء معالجة الكمية. يرجى المحاولة مرة أخرى.');
@@ -7644,10 +7706,27 @@ if (message.content.startsWith('!شراء')) {
                             }
                         }
 
-                        user.coins -= selectedItem.price;
-                        await user.save();
-                        await addUserItem(message.author.id, selectedItem.name, 1);
-                        message.reply(`تم شراء ${selectedItem.name} بنجاح!`);
+                        // استخدام معاملة ذرية لضمان عدم فقدان العملات
+                        try {
+                            user.coins -= selectedItem.price;
+                            
+                            // حفظ المستخدم وإضافة العنصر في معاملة واحدة
+                            await Promise.all([
+                                user.save(),
+                                addUserItem(message.author.id, selectedItem.name, 1)
+                            ]);
+                            
+                            message.reply(`تم شراء ${selectedItem.name} بنجاح!`);
+                                                 } catch (error) {
+                             // إعادة تعيين القيم في حالة الفشل
+                             console.error('Error in item purchase:', error);
+                             
+                             // إعادة تحميل البيانات الأصلية من قاعدة البيانات
+                             const freshUserData = await User.findOne({ id: message.author.id });
+                             if (freshUserData) Object.assign(user, freshUserData.toObject());
+                             
+                             throw error; // إعادة رمي الخطأ للمعالج العام
+                         }
                     }
                 } catch (error) {
                     console.error('Error processing purchase:', error);
