@@ -2341,19 +2341,28 @@ client.on('messageCreate', async (message) => {
             const content = message.content;
 
             // البحث عن رسائل التحويل الناجحة - أنماط متعددة
-            if ((content.includes('قام بتحويل') || content.includes('transferred') || content.includes('sent')) && 
-                content.includes('$') && content.includes('لـ')) {
+            if ((content.includes('قام بتحويل') || content.includes('قد حولت') || content.includes('transferred') || content.includes('sent')) && 
+                (content.includes('$') || content.includes('نوفا جولد')) && (content.includes('لـ') || content.includes('إلى'))) {
                 console.log('رسالة التحويل من البروبوت:', content);
 
                 // استخراج المبلغ من عدة أنماط مختلفة (باستخدام نفس منطق نظام الصرف الناجح)
                 let transferredAmount = 0;
                 console.log('نص الرسالة الكامل للتحليل:', content);
 
-                // النمط الأول: `$X,XXX` أو `$XXXX` (مع العكس المائل - أعلى أولوية)
-                let amountMatch = content.match(/`\$(\d+(?:,\d{3})*)`/);
+                // النمط الجديد: `$X,XXX` نوفا جولد (للرسالة الجديدة - أعلى أولوية)
+                let amountMatch = content.match(/`\$(\d+(?:,\d{3})*)`\s*نوفا جولد/);
                 if (amountMatch) {
                     transferredAmount = parseInt(amountMatch[1].replace(/,/g, ''));
-                    console.log('تم العثور على المبلغ بالنمط الأول (مع العكس):', transferredAmount);
+                    console.log('تم العثور على المبلغ بالنمط الجديد (نوفا جولد):', transferredAmount);
+                }
+
+                // النمط الأول: `$X,XXX` أو `$XXXX` (مع العكس المائل - أولوية ثانية)
+                if (!amountMatch || transferredAmount === 0) {
+                    amountMatch = content.match(/`\$(\d+(?:,\d{3})*)`/);
+                    if (amountMatch) {
+                        transferredAmount = parseInt(amountMatch[1].replace(/,/g, ''));
+                        console.log('تم العثور على المبلغ بالنمط الأول (مع العكس):', transferredAmount);
+                    }
                 }
 
                 // النمط الثاني: $XXXX (بدون عكس، أي عدد من الأرقام)
@@ -2394,10 +2403,18 @@ client.on('messageCreate', async (message) => {
                 // استخراج معرف المستقبل من أنماط متعددة
                 let recipientId = null;
 
-                // النمط الأول: لـ <@!معرف>
-                let recipientMatch = content.match(/لـ\s*<@!?(\d{15,20})>/);
+                // النمط الجديد: إلى <@!معرف> (للرسالة الجديدة)
+                let recipientMatch = content.match(/إلى\s*\*\*<@!?(\d{15,20})>\*\*/);
                 if (recipientMatch) {
                     recipientId = recipientMatch[1];
+                }
+
+                // النمط الأول: لـ <@!معرف>
+                if (!recipientId) {
+                    recipientMatch = content.match(/لـ\s*<@!?(\d{15,20})>/);
+                    if (recipientMatch) {
+                        recipientId = recipientMatch[1];
+                    }
                 }
 
                 // النمط الثاني: لـ @username مع معرف
