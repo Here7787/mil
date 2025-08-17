@@ -778,8 +778,8 @@ const userSchema = new mongoose.Schema({
     coins: Number,
     lastDefeated: Number,
     lastSalaryPaid: { type: Date, default: Date.now },
-    lastMiningCollected: { type: Date, default: Date.now },
-    lastOilCollected: { type: Date, default: Date.now },
+    lastMiningCollected: { type: Date, default: null },
+    lastOilCollected: { type: Date, default: null },
     alliance_id: String,
     alliance_rank: { type: String, default: 'عضو' }
 });
@@ -4815,30 +4815,64 @@ if (message.content === '!تصفير_الكل') {
                 let oilHours = 0;
 
                 if (mineCount > 0) {
-                    const timeSinceLastMining = now - new Date(user.lastMiningCollected);
-                    mineHours = Math.floor(timeSinceLastMining / oneHour);
+                    // إذا لم يكن هناك تسجيل سابق للجمع، فهذا يعني أنه اشترى المناجم للتو
+                    if (!user.lastMiningCollected) {
+                        // تعيين وقت الشراء كوقت آخر جمع + ساعة واحدة لضمان عدم الجمع الفوري
+                        user.lastMiningCollected = new Date(now.getTime());
+                        await user.save();
+                        mineHours = 0; // لا يمكن الجمع في أول مرة
+                    } else {
+                        // التحقق من صحة التاريخ لمنع التلاعب
+                        const lastMiningDate = new Date(user.lastMiningCollected);
+                        if (lastMiningDate > now) {
+                            // إذا كان التاريخ في المستقبل، فهناك تلاعب - إعادة تعيين التاريخ
+                            user.lastMiningCollected = new Date(now.getTime());
+                            await user.save();
+                            return message.reply('⚠️ تم اكتشاف محاولة تلاعب بالوقت. تم إعادة تعيين مؤقت المناجم.');
+                        }
 
-                    if (mineHours > 0) {
-                        // حساب الدخل للساعات المتراكمة (الحد الأقصى 24 ساعة) لكل منجم
-                        const hoursToCalculate = Math.min(mineHours, 24);
-                        for (let mine = 0; mine < mineCount; mine++) {
-                            for (let hour = 0; hour < hoursToCalculate; hour++) {
-                                mineIncome += Math.floor(Math.random() * (20000 - 2500 + 1)) + 2500;
+                        const timeSinceLastMining = now - lastMiningDate;
+                        mineHours = Math.floor(timeSinceLastMining / oneHour);
+
+                        if (mineHours > 0) {
+                            // حساب الدخل للساعات المتراكمة (الحد الأقصى 24 ساعة) لكل منجم
+                            const hoursToCalculate = Math.min(mineHours, 24);
+                            for (let mine = 0; mine < mineCount; mine++) {
+                                for (let hour = 0; hour < hoursToCalculate; hour++) {
+                                    mineIncome += Math.floor(Math.random() * (20000 - 2500 + 1)) + 2500;
+                                }
                             }
                         }
                     }
                 }
 
                 if (oilExtractorCount > 0) {
-                    const timeSinceLastOil = now - new Date(user.lastOilCollected);
-                    oilHours = Math.floor(timeSinceLastOil / oneHour);
+                    // إذا لم يكن هناك تسجيل سابق للجمع، فهذا يعني أنه اشترى المستخرجات للتو
+                    if (!user.lastOilCollected) {
+                        // تعيين وقت الشراء كوقت آخر جمع + ساعة واحدة لضمان عدم الجمع الفوري
+                        user.lastOilCollected = new Date(now.getTime());
+                        await user.save();
+                        oilHours = 0; // لا يمكن الجمع في أول مرة
+                    } else {
+                        // التحقق من صحة التاريخ لمنع التلاعب
+                        const lastOilDate = new Date(user.lastOilCollected);
+                        if (lastOilDate > now) {
+                            // إذا كان التاريخ في المستقبل، فهناك تلاعب - إعادة تعيين التاريخ
+                            user.lastOilCollected = new Date(now.getTime());
+                            await user.save();
+                            return message.reply('⚠️ تم اكتشاف محاولة تلاعب بالوقت. تم إعادة تعيين مؤقت مستخرجات النفط.');
+                        }
 
-                    if (oilHours > 0) {
-                        // حساب الدخل للساعات المتراكمة (الحد الأقصى 24 ساعة) لكل مستخرج
-                        const hoursToCalculate = Math.min(oilHours, 24);
-                        for (let extractor = 0; extractor < oilExtractorCount; extractor++) {
-                            for (let hour = 0; hour < hoursToCalculate; hour++) {
-                                oilIncome += Math.floor(Math.random() * (200000 - 50000 + 1)) + 50000;
+                        const timeSinceLastOil = now - lastOilDate;
+                        oilHours = Math.floor(timeSinceLastOil / oneHour);
+
+                        if (oilHours > 0) {
+                            // حساب الدخل للساعات المتراكمة (الحد الأقصى 24 ساعة) لكل مستخرج
+                            const hoursToCalculate = Math.min(oilHours, 24);
+                            for (let extractor = 0; extractor < oilExtractorCount; extractor++) {
+                                for (let hour = 0; hour < hoursToCalculate; hour++) {
+                                    oilIncome += Math.floor(Math.random() * (200000 - 50000 + 1)) + 50000;
+                                }
                             }
                         }
                     }
@@ -7233,35 +7267,40 @@ if (message.content.startsWith('!توب')) {
                 );
 
                 // حساب معلومات المناجم ومستخرجات النفط
-                const timeSinceLastMining = now - new Date(userProfile.lastMiningCollected);
-                const mineHours = Math.floor(timeSinceLastMining / oneHour);
-                const timeSinceLastOil = now - new Date(userProfile.lastOilCollected);
-                const oilHours = Math.floor(timeSinceLastOil / oneHour);
+                const timeSinceLastMining = userProfile.lastMiningCollected ? now - new Date(userProfile.lastMiningCollected) : 0;
+                const mineHours = userProfile.lastMiningCollected ? Math.floor(timeSinceLastMining / oneHour) : 0;
+                const timeSinceLastOil = userProfile.lastOilCollected ? now - new Date(userProfile.lastOilCollected) : 0;
+                const oilHours = userProfile.lastOilCollected ? Math.floor(timeSinceLastOil / oneHour) : 0;
 
                 // معلومات المناجم (إذا كان يملك مناجم)
                 if (mineCount > 0) {
-                    const miningTimeLeft = oneHour - (timeSinceLastMining % oneHour);
-                    const miningMinutesLeft = Math.floor(miningTimeLeft / (60 * 1000));
-
-                    // حساب العملات المتراكمة للمناجم
-                    let accumulatedMineCoins = 0;
-                    if (mineHours > 0) {
-                        const hoursToCalculate = Math.min(mineHours, 24);
-                        for (let mine = 0; mine < mineCount; mine++) {
-                            for (let hour = 0; hour < hoursToCalculate; hour++) {
-                                accumulatedMineCoins += Math.floor(Math.random() * (20000 - 2500 + 1)) + 2500;
-                            }
-                        }
-                    }
-
                     let miningInfo = `⛏️ عدد المناجم: **${mineCount}**\n`;
                     miningInfo += `💎 الدخل المتوقع: **${(mineCount * 11250).toLocaleString()}** عملة/ساعة\n`;
 
-                    if (mineHours > 0) {
-                        miningInfo += `💰 العملات المتراكمة: **${accumulatedMineCoins.toLocaleString()}** عملة\n`;
-                        miningInfo += `✅ **متاح للجمع الآن!** (${Math.min(mineHours, 24)} ساعة)`;
+                    if (!userProfile.lastMiningCollected) {
+                        // إذا لم يتم تسجيل أي جمع سابق، فهذا يعني أنه اشترى المناجم للتو
+                        miningInfo += `⏱️ الوقت للجمع: **60** دقيقة (منجم جديد)`;
                     } else {
-                        miningInfo += `⏱️ الوقت للجمع: **${miningMinutesLeft}** دقيقة`;
+                        const miningTimeLeft = oneHour - (timeSinceLastMining % oneHour);
+                        const miningMinutesLeft = Math.floor(miningTimeLeft / (60 * 1000));
+
+                        // حساب العملات المتراكمة للمناجم
+                        let accumulatedMineCoins = 0;
+                        if (mineHours > 0) {
+                            const hoursToCalculate = Math.min(mineHours, 24);
+                            for (let mine = 0; mine < mineCount; mine++) {
+                                for (let hour = 0; hour < hoursToCalculate; hour++) {
+                                    accumulatedMineCoins += Math.floor(Math.random() * (20000 - 2500 + 1)) + 2500;
+                                }
+                            }
+                        }
+
+                        if (mineHours > 0) {
+                            miningInfo += `💰 العملات المتراكمة: **${accumulatedMineCoins.toLocaleString()}** عملة\n`;
+                            miningInfo += `✅ **متاح للجمع الآن!** (${Math.min(mineHours, 24)} ساعة)`;
+                        } else {
+                            miningInfo += `⏱️ الوقت للجمع: **${miningMinutesLeft}** دقيقة`;
+                        }
                     }
 
                     embed.addFields({ name: '⛏️ معلومات المناجم:', value: miningInfo, inline: false });
@@ -7269,28 +7308,33 @@ if (message.content.startsWith('!توب')) {
 
                 // معلومات مستخرجات النفط (إذا كان يملك مستخرجات)
                 if (oilExtractorCount > 0) {
-                    const oilTimeLeft = oneHour - (timeSinceLastOil % oneHour);
-                    const oilMinutesLeft = Math.floor(oilTimeLeft / (60 * 1000));
-
-                    // حساب العملات المتراكمة لمستخرجات النفط
-                    let accumulatedOilCoins = 0;
-                    if (oilHours > 0) {
-                        const hoursToCalculate = Math.min(oilHours, 24);
-                        for (let extractor = 0; extractor < oilExtractorCount; extractor++) {
-                            for (let hour = 0; hour < hoursToCalculate; hour++) {
-                                accumulatedOilCoins += Math.floor(Math.random() * (200000 - 50000 + 1)) + 50000;
-                            }
-                        }
-                    }
-
                     let oilInfo = `🛢️ عدد المستخرجات: **${oilExtractorCount}**\n`;
                     oilInfo += `🔥 الدخل المتوقع: **${(oilExtractorCount * 125000).toLocaleString()}** عملة/ساعة\n`;
 
-                    if (oilHours > 0) {
-                        oilInfo += `💰 العملات المتراكمة: **${accumulatedOilCoins.toLocaleString()}** عملة\n`;
-                        oilInfo += `✅ **متاح للجمع الآن!** (${Math.min(oilHours, 24)} ساعة)`;
+                    if (!userProfile.lastOilCollected) {
+                        // إذا لم يتم تسجيل أي جمع سابق، فهذا يعني أنه اشترى المستخرجات للتو
+                        oilInfo += `⏱️ الوقت للجمع: **60** دقيقة (مستخرج جديد)`;
                     } else {
-                        oilInfo += `⏱️ الوقت للجمع: **${oilMinutesLeft}** دقيقة`;
+                        const oilTimeLeft = oneHour - (timeSinceLastOil % oneHour);
+                        const oilMinutesLeft = Math.floor(oilTimeLeft / (60 * 1000));
+
+                        // حساب العملات المتراكمة لمستخرجات النفط
+                        let accumulatedOilCoins = 0;
+                        if (oilHours > 0) {
+                            const hoursToCalculate = Math.min(oilHours, 24);
+                            for (let extractor = 0; extractor < oilExtractorCount; extractor++) {
+                                for (let hour = 0; hour < hoursToCalculate; hour++) {
+                                    accumulatedOilCoins += Math.floor(Math.random() * (200000 - 50000 + 1)) + 50000;
+                                }
+                            }
+                        }
+
+                        if (oilHours > 0) {
+                            oilInfo += `💰 العملات المتراكمة: **${accumulatedOilCoins.toLocaleString()}** عملة\n`;
+                            oilInfo += `✅ **متاح للجمع الآن!** (${Math.min(oilHours, 24)} ساعة)`;
+                        } else {
+                            oilInfo += `⏱️ الوقت للجمع: **${oilMinutesLeft}** دقيقة`;
+                        }
                     }
 
                     embed.addFields({ name: '🛢️ معلومات النفط:', value: oilInfo, inline: false });
@@ -7391,38 +7435,68 @@ if (message.content.startsWith('!توب')) {
                                 let incomeDetails = '';
 
                                 if (updatedMineCount > 0) {
-                                    const timeSinceLastMining = currentTime - new Date(updatedUser.lastMiningCollected);
-                                    const currentMineHours = Math.floor(timeSinceLastMining / oneHour);
-
-                                    if (currentMineHours > 0) {
-                                        const hoursToCalculate = Math.min(currentMineHours, 24);
-                                        let mineIncome = 0;
-                                        for (let i = 0; i < updatedMineCount; i++) {
-                                            for (let j = 0; j < hoursToCalculate; j++) {
-                                                mineIncome += Math.floor(Math.random() * (20000 - 2500 + 1)) + 2500;
-                                            }
+                                    // إذا لم يكن هناك تسجيل سابق للجمع، فهذا يعني أنه اشترى المناجم للتو
+                                    if (!updatedUser.lastMiningCollected) {
+                                        // تعيين وقت الشراء كوقت آخر جمع لضمان عدم الجمع الفوري
+                                        updatedUser.lastMiningCollected = new Date(currentTime.getTime());
+                                    } else {
+                                        // التحقق من صحة التاريخ لمنع التلاعب
+                                        const lastMiningDate = new Date(updatedUser.lastMiningCollected);
+                                        if (lastMiningDate > currentTime) {
+                                            // إذا كان التاريخ في المستقبل، فهناك تلاعب - إعادة تعيين التاريخ
+                                            updatedUser.lastMiningCollected = new Date(currentTime.getTime());
+                                            await updatedUser.save();
+                                            return i.reply({ content: '⚠️ تم اكتشاف محاولة تلاعب بالوقت. تم إعادة تعيين مؤقت المناجم.', ephemeral: true });
                                         }
-                                        totalIncome += mineIncome;
-                                        incomeDetails += `⛏️ المناجم: **${mineIncome.toLocaleString()}** عملة\n`;
-                                        updatedUser.lastMiningCollected = new Date(updatedUser.lastMiningCollected.getTime() + (hoursToCalculate * oneHour));
+
+                                        const timeSinceLastMining = currentTime - lastMiningDate;
+                                        const currentMineHours = Math.floor(timeSinceLastMining / oneHour);
+
+                                        if (currentMineHours > 0) {
+                                            const hoursToCalculate = Math.min(currentMineHours, 24);
+                                            let mineIncome = 0;
+                                            for (let i = 0; i < updatedMineCount; i++) {
+                                                for (let j = 0; j < hoursToCalculate; j++) {
+                                                    mineIncome += Math.floor(Math.random() * (20000 - 2500 + 1)) + 2500;
+                                                }
+                                            }
+                                            totalIncome += mineIncome;
+                                            incomeDetails += `⛏️ المناجم: **${mineIncome.toLocaleString()}** عملة\n`;
+                                            updatedUser.lastMiningCollected = new Date(updatedUser.lastMiningCollected.getTime() + (hoursToCalculate * oneHour));
+                                        }
                                     }
                                 }
 
                                 if (updatedOilCount > 0) {
-                                    const timeSinceLastOil = currentTime - new Date(updatedUser.lastOilCollected);
-                                    const currentOilHours = Math.floor(timeSinceLastOil / oneHour);
-
-                                    if (currentOilHours > 0) {
-                                        const hoursToCalculate = Math.min(currentOilHours, 24);
-                                        let oilIncome = 0;
-                                        for (let i = 0; i < updatedOilCount; i++) {
-                                            for (let j = 0; j < hoursToCalculate; j++) {
-                                                oilIncome += Math.floor(Math.random() * (200000 - 50000 + 1)) + 50000;
-                                            }
+                                    // إذا لم يكن هناك تسجيل سابق للجمع، فهذا يعني أنه اشترى المستخرجات للتو
+                                    if (!updatedUser.lastOilCollected) {
+                                        // تعيين وقت الشراء كوقت آخر جمع لضمان عدم الجمع الفوري
+                                        updatedUser.lastOilCollected = new Date(currentTime.getTime());
+                                    } else {
+                                        // التحقق من صحة التاريخ لمنع التلاعب
+                                        const lastOilDate = new Date(updatedUser.lastOilCollected);
+                                        if (lastOilDate > currentTime) {
+                                            // إذا كان التاريخ في المستقبل، فهناك تلاعب - إعادة تعيين التاريخ
+                                            updatedUser.lastOilCollected = new Date(currentTime.getTime());
+                                            await updatedUser.save();
+                                            return i.reply({ content: '⚠️ تم اكتشاف محاولة تلاعب بالوقت. تم إعادة تعيين مؤقت مستخرجات النفط.', ephemeral: true });
                                         }
-                                        totalIncome += oilIncome;
-                                        incomeDetails += `🛢️ النفط: **${oilIncome.toLocaleString()}** عملة\n`;
-                                        updatedUser.lastOilCollected = new Date(updatedUser.lastOilCollected.getTime() + (hoursToCalculate * oneHour));
+
+                                        const timeSinceLastOil = currentTime - lastOilDate;
+                                        const currentOilHours = Math.floor(timeSinceLastOil / oneHour);
+
+                                        if (currentOilHours > 0) {
+                                            const hoursToCalculate = Math.min(currentOilHours, 24);
+                                            let oilIncome = 0;
+                                            for (let i = 0; i < updatedOilCount; i++) {
+                                                for (let j = 0; j < hoursToCalculate; j++) {
+                                                    oilIncome += Math.floor(Math.random() * (200000 - 50000 + 1)) + 50000;
+                                                }
+                                            }
+                                            totalIncome += oilIncome;
+                                            incomeDetails += `🛢️ النفط: **${oilIncome.toLocaleString()}** عملة\n`;
+                                            updatedUser.lastOilCollected = new Date(updatedUser.lastOilCollected.getTime() + (hoursToCalculate * oneHour));
+                                        }
                                     }
                                 }
 
