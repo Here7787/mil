@@ -606,8 +606,8 @@ async function getEconomyInfo() {
     };
 }
 
-// دالة حساب ضريبة البروبوت
-function calculateProBotTax(amount) {
+// دالة حساب ضريبة بوت نوفا
+function calculateNovaBotTax(amount) {
     return Math.floor((amount * (20 / 19)) + 1);
 }
 
@@ -2088,9 +2088,9 @@ client.on('interactionCreate', async (interaction) => {
                 const dynamicBuyRate = await getDynamicBuyRate();
                 const economyInfo = await getEconomyInfo();
 
-                // حساب مبلغ الكريدت المطلوب بناءً على المعدل الديناميكي
+                // حساب مبلغ الجولد المطلوب بناءً على المعدل الديناميكي
                 const creditsNeeded = Math.ceil((coinsAmount / dynamicBuyRate) * 1000000);
-                const creditsWithTax = calculateProBotTax(creditsNeeded);
+                const creditsWithTax = calculateNovaBotTax(creditsNeeded);
 
                 // إنشاء معرف فريد للمعاملة
                 const transactionId = Date.now().toString();
@@ -2109,10 +2109,10 @@ client.on('interactionCreate', async (interaction) => {
                     .setDescription('لإتمام عملية الشراء، يرجى تحويل المبلغ المطلوب:')
                     .addFields(
                         { name: '🪙 العملات المطلوبة:', value: coinsAmount.toLocaleString() },
-                        { name: '💰 مبلغ الكريدت (مع الضريبة):', value: creditsWithTax.toLocaleString() },
+                        { name: '💰 مبلغ الجولد (مع الضريبة):', value: creditsWithTax.toLocaleString() },
                         { name: '📊 حالة الاقتصاد:', value: economyInfo.economyStateName },
-                        { name: '📈 معدل الشراء الحالي:', value: `${dynamicBuyRate.toLocaleString()} عملة = 1M كريدت` },
-                        { name: '🔄 أمر التحويل:', value: `\`c ${TRANSFER_RECIPIENT_ID} ${creditsWithTax}\`` }
+                        { name: '📈 معدل الشراء الحالي:', value: `${dynamicBuyRate.toLocaleString()} عملة = 1M جولد` },
+                        { name: '🔄 أمر التحويل:', value: `\`g ${TRANSFER_RECIPIENT_ID} ${creditsWithTax}\`` }
                     )
                     .setFooter({ text: `معرف المعاملة: ${transactionId} • إجمالي العملات في الاقتصاد: ${economyInfo.totalCoins.toLocaleString()}` });
 
@@ -2143,11 +2143,11 @@ client.on('interactionCreate', async (interaction) => {
                 const dynamicSellRate = await getDynamicSellRate();
                 const economyInfo = await getEconomyInfo();
 
-                // حساب مبلغ الكريدت المستلم بناءً على المعدل الديناميكي (بدون ضريبة)
+                // حساب مبلغ الجولد المستلم بناءً على المعدل الديناميكي (بدون ضريبة)
                 const creditsReceived = Math.floor((coinsAmount / dynamicSellRate) * 1000000);
 
                 // حساب المبلغ مع الضريبة الذي يجب إرساله
-                const creditsWithTax = calculateProBotTax(creditsReceived);
+                const creditsWithTax = calculateNovaBotTax(creditsReceived);
 
                 // إنشاء معرف فريد للمعاملة
                 const transactionId = Date.now().toString();
@@ -2167,10 +2167,10 @@ client.on('interactionCreate', async (interaction) => {
                     .setDescription('سيتم إرسال المبلغ التالي إليك:')
                     .addFields(
                         { name: '🪙 العملات المراد صرفها:', value: coinsAmount.toLocaleString() },
-                        { name: '💰 مبلغ الكريدت المستلم (صافي):', value: creditsReceived.toLocaleString() },
+                        { name: '💰 مبلغ الجولد المستلم (صافي):', value: creditsReceived.toLocaleString() },
                         { name: '💸 المبلغ المُرسل (مع الضريبة):', value: creditsWithTax.toLocaleString() },
                         { name: '📊 حالة الاقتصاد:', value: economyInfo.economyStateName },
-                        { name: '📉 معدل الصرف الحالي:', value: `${dynamicSellRate.toLocaleString()} عملة = 1M كريدت` },
+                        { name: '📉 معدل الصرف الحالي:', value: `${dynamicSellRate.toLocaleString()} عملة = 1M جولد` },
                         { name: '🆔 معرف المعاملة:', value: transactionId }
                     )
                     .setFooter({ text: `سيقوم الطاقم بتحويل المبلغ إليك قريباً • إجمالي العملات في الاقتصاد: ${economyInfo.totalCoins.toLocaleString()}` });
@@ -2181,7 +2181,7 @@ client.on('interactionCreate', async (interaction) => {
                 setTimeout(async () => {
                     try {
                         const channel = await client.channels.fetch(interaction.channel.id);
-                        await channel.send(`📝 **طلب صرف جديد**\nالمستخدم: <@${interaction.user.id}>\nالمبلغ الصافي: ${creditsReceived} كريدت\nالمبلغ مع الضريبة: ${creditsWithTax} كريدت\nالأمر: \`c ${interaction.user.id} ${creditsWithTax}\`\nمعرف المعاملة: ${transactionId}\n📊 حالة الاقتصاد: ${economyInfo.economyStateName}`);
+                        await channel.send(`📝 **طلب صرف جديد**\nالمستخدم: <@${interaction.user.id}>\nالمبلغ الصافي: ${creditsReceived} جولد\nالمبلغ مع الضريبة: ${creditsWithTax} جولد\nالأمر: \`g ${interaction.user.id} ${creditsWithTax}\`\nمعرف المعاملة: ${transactionId}\n📊 حالة الاقتصاد: ${economyInfo.economyStateName}`);
                     } catch (error) {
                         console.error('Error sending staff notification:', error);
                     }
@@ -2336,88 +2336,44 @@ client.on('messageCreate', async (message) => {
             }
         }
     }, 120000);
-    if (message.author.id === CREDIT_BOT_ID) {
+    if (message.author.id === NOVA_BOT_ID) {
         try {
             const content = message.content;
 
-            // البحث عن رسائل التحويل الناجحة - أنماط متعددة
-            if ((content.includes('قام بتحويل') || content.includes('transferred') || content.includes('sent')) && 
-                content.includes('$') && content.includes('لـ')) {
-                console.log('رسالة التحويل من البروبوت:', content);
+            // البحث عن رسائل التحويل الناجحة من بوت نوفا
+            // نمط الرسالة: <:success:1402983900443185243> **34.z** قد حولت `$4` ذهب إلى **<@1032677315299266673>**.
+            if (content.includes('<:success:1402983900443185243>') && 
+                content.includes('قد حولت') && 
+                content.includes('ذهب إلى')) {
+                console.log('رسالة التحويل من بوت نوفا:', content);
 
-                // استخراج المبلغ من عدة أنماط مختلفة (باستخدام نفس منطق نظام الصرف الناجح)
+                // استخراج المبلغ من رسالة نوفا
                 let transferredAmount = 0;
                 console.log('نص الرسالة الكامل للتحليل:', content);
 
-                // النمط الأول: `$X,XXX` أو `$XXXX` (مع العكس المائل - أعلى أولوية)
-                let amountMatch = content.match(/`\$(\d+(?:,\d{3})*)`/);
+                // نمط استخراج المبلغ من رسالة نوفا: `$X`
+                const amountMatch = content.match(/`\$(\d+)`/);
                 if (amountMatch) {
-                    transferredAmount = parseInt(amountMatch[1].replace(/,/g, ''));
-                    console.log('تم العثور على المبلغ بالنمط الأول (مع العكس):', transferredAmount);
-                }
-
-                // النمط الثاني: $XXXX (بدون عكس، أي عدد من الأرقام)
-                if (!amountMatch || transferredAmount === 0) {
-                    amountMatch = content.match(/\$(\d+)/);
-                    if (amountMatch) {
-                        transferredAmount = parseInt(amountMatch[1]);
-                        console.log('تم العثور على المبلغ بالنمط الثاني (بدون عكس):', transferredAmount);
-                    }
-                }
-
-                // النمط الثالث: $X,XXX (مع فواصل)
-                if (!amountMatch || transferredAmount === 0) {
-                    amountMatch = content.match(/\$(\d+(?:,\d{3})*)/);
-                    if (amountMatch) {
-                        transferredAmount = parseInt(amountMatch[1].replace(/,/g, ''));
-                        console.log('تم العثور على المبلغ بالنمط الثالث (مع فواصل):', transferredAmount);
-                    }
-                }
-
-                // النمط الرابع: البحث عن أي رقم كبير في الرسالة
-                if (!amountMatch || transferredAmount === 0) {
-                    const numberMatches = content.match(/(\d{3,})/g);
-                    if (numberMatches) {
-                        // أخذ أكبر رقم موجود في الرسالة
-                        transferredAmount = Math.max(...numberMatches.map(num => parseInt(num.replace(/,/g, ''))));
-                    }
-                }
-
-                if (!transferredAmount || transferredAmount === 0) {
-                    console.log('لم يتم العثور على المبلغ في الرسالة');
+                    transferredAmount = parseInt(amountMatch[1]);
+                    console.log('تم العثور على المبلغ من رسالة نوفا:', transferredAmount);
+                } else {
+                    console.log('لم يتم العثور على المبلغ في رسالة نوفا');
                     console.log('محتوى الرسالة الكامل:', content);
                     return;
                 }
 
-                console.log('المبلغ المحول:', transferredAmount);
+                console.log('المبلغ المحول (جولد):', transferredAmount);
 
-                // استخراج معرف المستقبل من أنماط متعددة
+                // استخراج معرف المستقبل من رسالة نوفا
                 let recipientId = null;
-
-                // النمط الأول: لـ <@!معرف>
-                let recipientMatch = content.match(/لـ\s*<@!?(\d{15,20})>/);
+                
+                // نمط استخراج المستقبل: **<@معرف>**
+                const recipientMatch = content.match(/ذهب إلى \*\*<@(\d{15,20})>\*\*/);
                 if (recipientMatch) {
                     recipientId = recipientMatch[1];
-                }
-
-                // النمط الثاني: لـ @username مع معرف
-                if (!recipientId) {
-                    recipientMatch = content.match(/لـ\s*@[^<]*?(\d{15,20})/);
-                    if (recipientMatch) {
-                        recipientId = recipientMatch[1];
-                    }
-                }
-
-                // النمط الثالث: البحث في النص عن معرف Discord
-                if (!recipientId) {
-                    const discordIdMatch = content.match(/(\d{15,20})/);
-                    if (discordIdMatch) {
-                        recipientId = discordIdMatch[1];
-                    }
-                }
-
-                if (!recipientId) {
-                    console.log('لم يتم العثور على معرف المستقبل في الرسالة');
+                    console.log('تم العثور على معرف المستقبل:', recipientId);
+                } else {
+                    console.log('لم يتم العثور على معرف المستقبل في رسالة نوفا');
                     console.log('النص الكامل للرسالة:', content);
                     return;
                 }
@@ -2434,9 +2390,9 @@ client.on('messageCreate', async (message) => {
                         if (transaction.type === 'buy') {
                             // للشراء: التحقق من أن المستقبل هو الشخص المحدد
                             const originalAmount = transaction.creditsAmount;
-                            const expectedAmountWithTax = calculateProBotTax(transaction.creditsAmount);
+                            const expectedAmountWithTax = calculateNovaBotTax(transaction.creditsAmount);
 
-                            // تساهل أكبر في المقارنة للتعامل مع جميع الاختلافات
+                            // تساهل في المقارنة للتعامل مع الاختلافات
                             const tolerance = Math.max(50, Math.floor(Math.max(originalAmount, expectedAmountWithTax) * 0.1)); // 10% تساهل أو 50 كحد أدنى
 
                             // التحقق من المستقبل أولاً
@@ -2447,11 +2403,7 @@ client.on('messageCreate', async (message) => {
                                 Math.abs(transferredAmount - originalAmount) <= tolerance ||
                                 Math.abs(transferredAmount - expectedAmountWithTax) <= tolerance ||
                                 transferredAmount === originalAmount ||
-                                transferredAmount === expectedAmountWithTax ||
-                                // التحقق من المبلغ بدون ضريبة (في حالة كان البروبوت لا يحسب الضريبة)
-                                Math.abs(transferredAmount - Math.floor(originalAmount * 0.95)) <= tolerance ||
-                                // التحقق من المبلغ مع ضريبة مختلفة
-                                Math.abs(transferredAmount - Math.floor(originalAmount * 1.05)) <= tolerance
+                                transferredAmount === expectedAmountWithTax
                             );
 
                             isMatching = recipientMatches && amountMatches;
@@ -2462,7 +2414,7 @@ client.on('messageCreate', async (message) => {
                         } else if (transaction.type === 'sell') {
                             // للصرف: التحقق من أن المستقبل هو المستخدم الصحيح
                             const originalAmount = transaction.creditsAmount; // المبلغ الصافي
-                            const expectedAmountWithTax = transaction.creditsWithTax || calculateProBotTax(transaction.creditsAmount); // المبلغ مع الضريبة
+                            const expectedAmountWithTax = transaction.creditsWithTax || calculateNovaBotTax(transaction.creditsAmount); // المبلغ مع الضريبة
                             const tolerance = Math.max(50, Math.floor(Math.max(originalAmount, expectedAmountWithTax) * 0.1)); // 10% تساهل أو 50 كحد أدنى
 
                             const recipientMatches = recipientId === transaction.userId;
@@ -2495,7 +2447,7 @@ client.on('messageCreate', async (message) => {
                                         .setTitle('✅ تمت عملية الشراء بنجاح!')
                                         .setDescription(`تم إضافة ${transaction.coinsAmount.toLocaleString()} عملة إلى حسابك.`)
                                         .addFields(
-                                            { name: '💰 المبلغ المحول:', value: `${transferredAmount.toLocaleString()} كريدت`, inline: true },
+                                            { name: '💰 المبلغ المحول:', value: `${transferredAmount.toLocaleString()} جولد`, inline: true },
                                             { name: '🪙 العملات المضافة:', value: `${transaction.coinsAmount.toLocaleString()} عملة`, inline: true },
                                             { name: '💎 إجمالي عملاتك:', value: `${user.coins.toLocaleString()} عملة`, inline: true },
                                             { name: '📊 معرف المعاملة:', value: transactionId, inline: true }
@@ -2526,10 +2478,10 @@ client.on('messageCreate', async (message) => {
                                     const successEmbed = new discord.EmbedBuilder()
                                         .setColor('#00FF00')
                                         .setTitle('✅ تمت عملية الصرف بنجاح!')
-                                        .setDescription(`تم خصم ${transaction.coinsAmount.toLocaleString()} عملة من حسابك وتحويل ${transferredAmount.toLocaleString()} كريدت إليك.`)
+                                        .setDescription(`تم خصم ${transaction.coinsAmount.toLocaleString()} عملة من حسابك وتحويل ${transferredAmount.toLocaleString()} جولد إليك.`)
                                         .addFields(
                                             { name: '🪙 العملات المخصومة:', value: `${transaction.coinsAmount.toLocaleString()} عملة`, inline: true },
-                                            { name: '💰 الكريدت المستلم:', value: `${transferredAmount.toLocaleString()} كريدت`, inline: true },
+                                            { name: '💰 الجولد المستلم:', value: `${transferredAmount.toLocaleString()} جولد`, inline: true },
                                             { name: '💎 عملاتك المتبقية:', value: `${user.coins.toLocaleString()} عملة`, inline: true }
                                         )
                                         .setFooter({ text: 'شكراً لك على استخدام خدماتنا! • ' + new Date().toLocaleString('ar-SA') });
@@ -2555,7 +2507,7 @@ client.on('messageCreate', async (message) => {
                 }
             }
         } catch (error) {
-            console.error('Error processing credit bot message:', error);
+            console.error('Error processing Nova bot message:', error);
         }
     }
 
@@ -8075,11 +8027,11 @@ if (message.content.startsWith('!قصف')) {
                         { name: '💰 إجمالي العملات في الاقتصاد:', value: `${economyInfo.totalCoins.toLocaleString()} عملة`, inline: true },
                         { name: '👥 عدد اللاعبين:', value: `${economyInfo.totalPlayers.toLocaleString()} لاعب`, inline: true },
                         { name: '📈 حالة الاقتصاد:', value: economyInfo.economyStateName, inline: true },
-                        { name: '🛒 معدل الشراء الحالي:', value: `${economyInfo.buyRate.toLocaleString()} عملة = 1M كريدت`, inline: false },
+                        { name: '🛒 معدل الشراء الحالي:', value: `${economyInfo.buyRate.toLocaleString()} عملة = 1M جولد`, inline: false },
                         { name: '📊 تغيير سعر الشراء:', value: `${buyChangePercent > 0 ? '+' : ''}${buyChangePercent}% من السعر الأساسي`, inline: true },
-                        { name: '💸 معدل الصرف الحالي:', value: `${economyInfo.sellRate.toLocaleString()} عملة = 1M كريدت`, inline: false },
+                        { name: '💸 معدل الصرف الحالي:', value: `${economyInfo.sellRate.toLocaleString()} عملة = 1M جولد`, inline: false },
                         { name: '📉 تغيير سعر الصرف:', value: `${sellChangePercent > 0 ? '+' : ''}${sellChangePercent}% من السعر الأساسي`, inline: true },
-                        { name: '⚖️ السعر الأساسي:', value: `${BASE_EXCHANGE_RATE.toLocaleString()} عملة = 1M كريدت`, inline: false }
+                        { name: '⚖️ السعر الأساسي:', value: `${BASE_EXCHANGE_RATE.toLocaleString()} عملة = 1M جولد`, inline: false }
                     )
                     .setFooter({ text: 'الأسعار تتغير تلقائياً حسب إجمالي العملات في الاقتصاد' })
                     .setTimestamp();
@@ -8458,7 +8410,7 @@ if (message.content.startsWith('!قصف')) {
                                 .setDescription('**اكتشف النظام الاقتصادي المتطور! 📈**')
                                 .addFields(
                                     { name: '📊 نظام التضخم الديناميكي:', value: '`!الاقتصاد` - اعرض حالة الاقتصاد\n• الأسعار تتغير حسب إجمالي العملات\n• اقتصاد ضعيف = شراء غالي + صرف قليل\n• اقتصاد قوي = شراء رخيص + صرف عالي', inline: false },
-                                    { name: '💰 نظام صرف العملات:', value: 'يمكن تحويل عملات اللعبة إلى كريدت حقيقي!\n• استخدم نظام التذاكر للصرف\n• معدلات متغيرة حسب الاقتصاد\n• المعدل الأساسي: 100,000 عملة = 1M كريدت', inline: false },
+                                    { name: '💰 نظام صرف العملات:', value: 'يمكن تحويل عملات اللعبة إلى جولد حقيقي!\n• استخدم نظام التذاكر للصرف\n• معدلات متغيرة حسب الاقتصاد\n• المعدل الأساسي: 100,000 عملة = 1M جولد', inline: false },
                                     { name: '🎫 نظام التذاكر:', value: '**للمشرفين:**\n`!تذكرة` - أنشئ نظام تذاكر\n`!del` - احذف التذكرة (في قناة التذكرة)\n`!rem` - احذف رسائل التذاكر\n\n**للاعبين:**\nاضغط زر "فتح تذكرة" لبدء التداول', inline: false },
                                     { name: '🛍️ التسوق الذكي:', value: '• اشتر المناجم أولاً للدخل المستمر\n• النفط أكثر ربحية لكن أغلى\n• استثمر في الدفاعات قبل مهاجمة الآخرين\n• تذكر تكاليف الرواتب!', inline: false },
                                     { name: '📈 استراتيجيات الاستثمار:', value: '1. **ابدأ بالمناجم** - دخل مضمون\n2. **طور الجيش تدريجياً** - لا تنس الرواتب\n3. **استثمر في الدفاعات** - حماية ضرورية\n4. **ادخر للنفط** - استثمار طويل المدى\n5. **انضم لتحالف** - القوة في الوحدة', inline: false }
