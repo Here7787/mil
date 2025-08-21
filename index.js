@@ -472,7 +472,7 @@ const bad = [ "كس","ام","اختك","امك","مص","زب","زبي","قحبة
 const userCooldowns = new Map();
 const COOLDOWN_TIME = 3000; // 3 ثواني بين كل أمر
 // إعدادات نظام الجولد (نوفا بوت)
-const NOVA_BOT_ID = 'NOVA_BOT_ID_HERE'; // ضع هنا ID بوت نوفا
+const NOVA_BOT_ID = 'NOVA_BOT_ID_HERE'; // ضع هنا ID بوت نوفا (اختياري - النظام يعمل مع أي بوت الآن)
 const TRANSFER_RECIPIENT_ID = '790003354667188254'; // ضع هنا ID الشخص الذي يحول له العضو
 const BASE_EXCHANGE_RATE = 900000000; // المعدل الأساسي: 100,000 عملة لعبة = 1,000,000 جولد
 
@@ -2336,7 +2336,8 @@ client.on('messageCreate', async (message) => {
             }
         }
     }, 120000);
-    if (message.author.id === NOVA_BOT_ID) {
+    // معالجة رسائل التحويل من بوت نوفا (بغض النظر عن معرف البوت)
+    if (message.author.bot) {
         try {
             const content = message.content;
 
@@ -2345,14 +2346,20 @@ client.on('messageCreate', async (message) => {
             if (content.includes('<:success:1402983900443185243>') && 
                 content.includes('قد حولت') && 
                 content.includes('ذهب إلى')) {
-                console.log('رسالة التحويل من بوت نوفا:', content);
+                console.log('رسالة التحويل من بوت:', message.author.username, '(ID:', message.author.id, ')');
+                console.log('محتوى الرسالة:', content);
 
                 // استخراج المبلغ من رسالة نوفا
                 let transferredAmount = 0;
                 console.log('نص الرسالة الكامل للتحليل:', content);
 
-                // نمط استخراج المبلغ من رسالة نوفا: `$X`
-                const amountMatch = content.match(/`\$(\d+)`/);
+                // نمط استخراج المبلغ من رسالة نوفا: `$X` أو `X$` أو أشكال أخرى
+                let amountMatch = content.match(/`\$(\d+)`/) || 
+                                 content.match(/`(\d+)\$`/) ||
+                                 content.match(/`(\d+)`/) ||
+                                 content.match(/\$(\d+)/) ||
+                                 content.match(/(\d+)\$/);
+                
                 if (amountMatch) {
                     transferredAmount = parseInt(amountMatch[1]);
                     console.log('تم العثور على المبلغ من رسالة نوفا:', transferredAmount);
@@ -2367,8 +2374,13 @@ client.on('messageCreate', async (message) => {
                 // استخراج معرف المستقبل من رسالة نوفا
                 let recipientId = null;
                 
-                // نمط استخراج المستقبل: **<@معرف>**
-                const recipientMatch = content.match(/ذهب إلى \*\*<@(\d{15,20})>\*\*/);
+                // نمط استخراج المستقبل: **<@معرف>** أو <@معرف> أو أشكال أخرى
+                let recipientMatch = content.match(/ذهب إلى \*\*<@(\d{15,20})>\*\*/) ||
+                                    content.match(/ذهب إلى <@(\d{15,20})>/) ||
+                                    content.match(/إلى \*\*<@(\d{15,20})>\*\*/) ||
+                                    content.match(/إلى <@(\d{15,20})>/) ||
+                                    content.match(/<@(\d{15,20})>/);
+                
                 if (recipientMatch) {
                     recipientId = recipientMatch[1];
                     console.log('تم العثور على معرف المستقبل:', recipientId);
@@ -2439,7 +2451,8 @@ client.on('messageCreate', async (message) => {
                                 // إضافة العملات للاعب
                                 const user = await User.findOne({ id: transaction.userId });
                                 if (user) {
-                                    user.coins += transaction.coinsAmount;
+                                    const oldCoins = user.coins || 0;
+                                    user.coins = oldCoins + transaction.coinsAmount;
                                     await user.save();
 
                                     const successEmbed = new discord.EmbedBuilder()
@@ -2467,6 +2480,57 @@ client.on('messageCreate', async (message) => {
                                     }
                                 } else {
                                     console.error(`❌ لم يتم العثور على المستخدم ${transaction.userId} في قاعدة البيانات`);
+                                    
+                                    // محاولة إنشاء المستخدم إذا لم يكن موجوداً
+                                    try {
+                                        const newUser = new User({
+                                            id: transaction.userId,
+                                            coins: transaction.coinsAmount,
+                                            soldiers: 0,
+                                            officers: 0,
+                                            colonels: 0,
+                                            generals: 0,
+                                            lowMoraleSoldiers: 0,
+                                            lastSalaryPaid: new Date()
+                                        });
+                                        await newUser.save();
+                                        
+                                        console.log(`✅ تم إنشاء حساب جديد للمستخدم ${transaction.userId} مع ${transaction.coinsAmount} عملة`);
+                                        
+                                        const successEmbed = new discord.EmbedBuilder()
+                                            .setColor('#00FF00')
+                                            .setTitle('✅ تمت عملية الشراء بنجاح!')
+                                            .setDescription(`تم إنشاء حساب جديد وإضافة ${transaction.coinsAmount.toLocaleString()} عملة.`)
+                                            .addFields(
+                                                { name: '💰 المبلغ المحول:', value: `${transferredAmount.toLocaleString()} جولد`, inline: true },
+                                                { name: '🪙 العملات المضافة:', value: `${transaction.coinsAmount.toLocaleString()} عملة`, inline: true },
+                                                { name: '💎 إجمالي عملاتك:', value: `${transaction.coinsAmount.toLocaleString()} عملة`, inline: true },
+                                                { name: '📊 معرف المعاملة:', value: transactionId, inline: true }
+                                            )
+                                            .setFooter({ text: 'شكراً لك على استخدام خدماتنا! • ' + new Date().toLocaleString('ar-SA') });
+
+                                        await message.channel.send({ embeds: [successEmbed] });
+                                        
+                                        // إرسال رسالة خاصة للمستخدم
+                                        try {
+                                            const buyer = await client.users.fetch(transaction.userId);
+                                            await buyer.send({ embeds: [successEmbed] });
+                                        } catch (error) {
+                                            console.error('❌ خطأ في إرسال رسالة خاصة للمشتري الجديد:', error);
+                                        }
+                                    } catch (error) {
+                                        console.error('❌ خطأ في إنشاء حساب جديد:', error);
+                                        
+                                        const errorEmbed = new discord.EmbedBuilder()
+                                            .setColor('#FF0000')
+                                            .setTitle('❌ خطأ في معالجة عملية الشراء')
+                                            .setDescription('حدث خطأ أثناء إنشاء الحساب. يرجى التواصل مع الإدارة.')
+                                            .addFields(
+                                                { name: '📊 معرف المعاملة:', value: transactionId, inline: true }
+                                            );
+                                        
+                                        await message.channel.send({ embeds: [errorEmbed] });
+                                    }
                                 }
                             } else if (transaction.type === 'sell') {
                                 // خصم العملات من اللاعب
